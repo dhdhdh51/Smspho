@@ -6,7 +6,6 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
@@ -17,7 +16,7 @@
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
         <activity
-            android:name=".viewer.MainActivity"
+            android:name=".LoginActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|keyboardHidden">
             <intent-filter>
@@ -26,18 +25,10 @@
             </intent-filter>
         </activity>
 
-        <service
-            android:name=".viewer.PollService"
+        <activity
+            android:name=".DashboardActivity"
             android:exported="false"
-            android:foregroundServiceType="dataSync"/>
-
-        <receiver
-            android:name=".viewer.BootReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED"/>
-            </intent-filter>
-        </receiver>
+            android:configChanges="orientation|screenSize|keyboardHidden"/>
 
     </application>
 </manifest>
