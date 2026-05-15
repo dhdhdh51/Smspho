@@ -20,13 +20,14 @@ import android.widget.TextView;
 import android.widget.Toast;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class DashboardActivity extends Activity {
 
-    private static final int    POLL_MS = 5000;
+    private static final int    POLL_MS = 2000;  // 2s polling
     private static final String CH_ID   = "sms_native";
     private static final AtomicInteger nid = new AtomicInteger(3000);
 
@@ -95,6 +96,35 @@ public class DashboardActivity extends Activity {
         });
     }
 
+    /**
+     * Properly extracts JSON objects from an array string.
+     * Handles { } inside string values correctly — skips them.
+     * e.g., inner = '{"id":1,"msg":"hi {test}"},{"id":2,...}'
+     */
+    private static List<String> extractObjects(String inner) {
+        List<String> result = new ArrayList<>();
+        int depth = 0, start = -1;
+        boolean inStr = false, escape = false;
+        for (int i = 0; i < inner.length(); i++) {
+            char c = inner.charAt(i);
+            if (escape)          { escape = false; continue; }
+            if (c == '\\' && inStr) { escape = true;  continue; }
+            if (c == '"')        { inStr = !inStr;   continue; }
+            if (inStr)           { continue; }
+            if (c == '{') {
+                if (depth == 0) start = i;
+                depth++;
+            } else if (c == '}') {
+                depth--;
+                if (depth == 0 && start >= 0) {
+                    result.add(inner.substring(start, i + 1));
+                    start = -1;
+                }
+            }
+        }
+        return result;
+    }
+
     private void fetchMessages(boolean full) {
         String apiKey = prefs.getString("api_key", "");
         if (apiKey.isEmpty()) { logout(); return; }
@@ -102,61 +132,63 @@ public class DashboardActivity extends Activity {
         int since = full ? 0 : lastId;
         new Thread(() -> {
             try {
-                String path = "/api/messages.php?limit=50&since_id=" + since
+                String path = "/api/messages.php?limit=100&since_id=" + since
                     + "&api_key=" + URLEncoder.encode(apiKey, "UTF-8");
                 String resp = Api.get(path).trim();
 
-                // Handle both server response formats:
-                // New (deployed): plain array  [{"id":1,...},...]
-                // Old (not yet deployed): object  {"messages":[{"id":1,...},...], ...}
+                // Handle both server formats:
+                // New: plain array  [{"id":1,...},...]
+                // Old: object       {"messages":[{"id":1,...},...], ...}
                 String inner;
                 if (resp.startsWith("[")) {
                     inner = resp.substring(1, resp.length() - 1).trim();
                 } else if (resp.startsWith("{")) {
                     int arrMark = resp.indexOf("\"messages\":[");
                     if (arrMark < 0) {
-                        String errMsg = Api.str(resp, "error");
-                        if (errMsg.isEmpty()) errMsg = resp.substring(0, Math.min(120, resp.length()));
-                        final String fe = errMsg;
+                        String err = Api.str(resp, "error");
+                        if (err.isEmpty()) err = resp.substring(0, Math.min(120, resp.length()));
+                        final String fe = err;
                         setStatus("Server error: " + fe, "#EF4444");
                         return;
                     }
-                    int start = resp.indexOf("[", arrMark) + 1;
-                    int depth = 1, pos = start;
-                    while (pos < resp.length() && depth > 0) {
-                        char c = resp.charAt(pos);
-                        if (c == '[') depth++;
-                        else if (c == ']') depth--;
-                        pos++;
+                    int s0 = resp.indexOf("[", arrMark) + 1;
+                    int d = 1, p = s0;
+                    boolean ins = false, esc = false;
+                    while (p < resp.length() && d > 0) {
+                        char c = resp.charAt(p);
+                        if (esc)          { esc = false; }
+                        else if (c == '\\' && ins) { esc = true; }
+                        else if (c == '"') { ins = !ins; }
+                        else if (!ins) {
+                            if (c == '[') d++;
+                            else if (c == ']') d--;
+                        }
+                        p++;
                     }
-                    inner = resp.substring(start, pos - 1).trim();
+                    inner = resp.substring(s0, p - 1).trim();
                 } else {
                     setStatus("Server error: " + resp.substring(0, Math.min(120, resp.length())), "#EF4444");
                     return;
                 }
+
                 ArrayList<String> newItems = new ArrayList<>();
                 int newLastId = lastId;
-                int parsed = 0, skipped = 0;
 
                 if (!inner.isEmpty()) {
-                    String[] parts = inner.split("\\},\\s*\\{");
-                    for (String part : parts) {
-                        int id      = Api.num(part, "id");
-                        String from = Api.str(part, "sender");
-                        String msg  = Api.str(part, "message");
-                        String time = Api.str(part, "received_at");
-                        if (id == 0 || from.isEmpty()) { skipped++; continue; }
+                    List<String> objects = extractObjects(inner);
+                    for (String obj : objects) {
+                        int id      = Api.num(obj, "id");
+                        String from = Api.str(obj, "sender");
+                        String msg  = Api.str(obj, "message");
+                        String time = Api.str(obj, "received_at");
+                        if (id == 0 || from.isEmpty()) continue;
                         if (id > newLastId) newLastId = id;
                         if (!firstLoad && id > lastId) showNotification(from, msg);
                         newItems.add(from + "\n" + msg + "\n" + time);
-                        parsed++;
                     }
                 }
 
                 final int finalLastId = newLastId;
-                final int finalParsed = parsed;
-                final int finalSkipped = skipped;
-                final String debugResp = resp.length() > 200 ? resp.substring(0, 200) : resp;
                 firstLoad = false;
 
                 runOnUiThread(() -> {
@@ -166,14 +198,10 @@ public class DashboardActivity extends Activity {
                     showEmpty(items.isEmpty());
                     lastId = finalLastId;
                     prefs.edit().putInt("last_id", lastId).apply();
-                    if (items.isEmpty() && finalSkipped > 0) {
-                        // Parsing issue — show debug info
-                        setStatus("Parse error (" + finalSkipped + " skipped). Raw: " + debugResp, "#F59E0B");
-                    } else if (items.isEmpty()) {
-                        setStatus("Connected  •  Koi message nahi hua abhi tak", "#64748B");
-                    } else {
-                        setStatus("Connected  •  " + items.size() + " messages", "#22C55E");
-                    }
+                    String statusTxt = items.isEmpty()
+                        ? "Connected  •  Koi message nahi hua abhi tak"
+                        : "Connected  •  " + items.size() + " messages";
+                    setStatus(statusTxt, items.isEmpty() ? "#64748B" : "#22C55E");
                 });
 
             } catch (Exception e) {
@@ -182,7 +210,6 @@ public class DashboardActivity extends Activity {
                 String display = jsonErr.isEmpty() ? raw : jsonErr;
                 if (display.length() > 150) display = display.substring(0, 150) + "...";
                 setStatus("Error: " + display, "#EF4444");
-                // Never auto-logout on network errors
             }
         }).start();
     }
