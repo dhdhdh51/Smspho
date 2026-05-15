@@ -59,7 +59,7 @@ SCM_JSON = (
         ']'
     '}}'
 )
-SCM = "#|\n$JSON\n" + SCM_JSON + "\n$JSON\n|#\n"
+SCM = "#|\n$JSON\n" + SCM_JSON + "\n"
 
 # ── Screen1.bky ───────────────────────────────────────────────────────────
 if EMPTY_BLOCKS:
