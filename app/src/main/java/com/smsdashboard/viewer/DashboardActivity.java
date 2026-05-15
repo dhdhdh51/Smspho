@@ -32,8 +32,7 @@ public class DashboardActivity extends Activity {
 
     private ListView listView;
     private TextView tvEmpty, tvUser;
-    private final ArrayList<String> items    = new ArrayList<>();
-    private final ArrayList<int[]>  msgIds   = new ArrayList<>();
+    private final ArrayList<String> items = new ArrayList<>();
     private ArrayAdapter<String> adapter;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private SharedPreferences prefs;
@@ -57,8 +56,7 @@ public class DashboardActivity extends Activity {
         tvEmpty  = findViewById(R.id.tvEmpty);
         tvUser   = findViewById(R.id.tvUser);
 
-        String name = prefs.getString("name", "Dashboard");
-        tvUser.setText(name);
+        tvUser.setText(prefs.getString("name", "Dashboard"));
 
         adapter = new ArrayAdapter<>(this, R.layout.item_message, R.id.tvContent, items);
         listView.setAdapter(adapter);
@@ -68,7 +66,13 @@ public class DashboardActivity extends Activity {
         fetchMessages(true);
 
         findViewById(R.id.btnLogout).setOnClickListener(v -> logout());
-        findViewById(R.id.btnRefresh).setOnClickListener(v -> fetchMessages(true));
+        findViewById(R.id.btnRefresh).setOnClickListener(v -> {
+            items.clear();
+            adapter.notifyDataSetChanged();
+            lastId = 0;
+            firstLoad = true;
+            fetchMessages(true);
+        });
     }
 
     @Override protected void onResume() {
@@ -90,51 +94,50 @@ public class DashboardActivity extends Activity {
             try {
                 String path = "/api/messages.php?limit=50&since_id=" + since
                     + "&api_key=" + URLEncoder.encode(apiKey, "UTF-8");
-                String resp = Api.get(path);
+                String resp = Api.get(path).trim();
 
-                // Parse messages array
-                int arrStart = resp.indexOf("[");
-                int arrEnd   = resp.lastIndexOf("]");
-                if (arrStart < 0 || arrEnd <= arrStart) {
-                    runOnUiThread(() -> showEmpty(true));
+                // Server returns plain JSON array: [{...},{...}]
+                if (!resp.startsWith("[")) {
+                    runOnUiThread(() ->
+                        Toast.makeText(this, "Server error: " + resp, Toast.LENGTH_LONG).show()
+                    );
                     return;
                 }
 
-                String arr = resp.substring(arrStart + 1, arrEnd).trim();
-                if (arr.isEmpty()) {
-                    if (full) runOnUiThread(() -> showEmpty(items.isEmpty()));
-                    return;
-                }
+                // Strip outer brackets
+                String inner = resp.substring(1, resp.length() - 1).trim();
 
-                String[] parts = arr.split("\\},\\s*\\{");
                 ArrayList<String> newItems = new ArrayList<>();
                 int newLastId = lastId;
 
-                for (String part : parts) {
-                    int id      = Api.num(part, "id");
-                    String from = Api.str(part, "sender");
-                    String msg  = Api.str(part, "message");
-                    String time = Api.str(part, "received_at");
-                    if (id == 0) continue;
-                    if (id > newLastId) newLastId = id;
+                if (!inner.isEmpty()) {
+                    String[] parts = inner.split("\\},\\s*\\{");
+                    for (String part : parts) {
+                        int id      = Api.num(part, "id");
+                        String from = Api.str(part, "sender");
+                        String msg  = Api.str(part, "message");
+                        String time = Api.str(part, "received_at");
+                        if (id == 0 || from.isEmpty()) continue;
+                        if (id > newLastId) newLastId = id;
 
-                    String display = from + "\n" + msg + "\n" + time;
-                    newItems.add(0, display);
-
-                    // Notify if new message (not first load)
-                    if (!firstLoad && id > lastId) {
-                        showNotification(from, msg);
+                        if (!firstLoad && id > lastId) {
+                            showNotification(from, msg);
+                        }
+                        // Server returns newest-first; preserve that order
+                        newItems.add(from + "\n" + msg + "\n" + time);
                     }
                 }
 
                 final int finalLastId = newLastId;
-                final boolean wasFirstLoad = firstLoad;
                 firstLoad = false;
 
                 runOnUiThread(() -> {
-                    if (full) { items.clear(); items.addAll(newItems); }
-                    else items.addAll(0, newItems);
-
+                    if (full) {
+                        items.clear();
+                        items.addAll(newItems);
+                    } else {
+                        items.addAll(0, newItems);
+                    }
                     adapter.notifyDataSetChanged();
                     showEmpty(items.isEmpty());
                     lastId = finalLastId;
@@ -142,9 +145,14 @@ public class DashboardActivity extends Activity {
                 });
 
             } catch (Exception e) {
-                if (full) runOnUiThread(() ->
-                    Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show()
-                );
+                String errMsg = e.getMessage() != null ? e.getMessage() : "Unknown error";
+                if (errMsg.contains("401") || errMsg.contains("Unauthorized") || errMsg.contains("Invalid API")) {
+                    runOnUiThread(this::logout);
+                } else if (full) {
+                    runOnUiThread(() ->
+                        Toast.makeText(this, "Error: " + errMsg, Toast.LENGTH_LONG).show()
+                    );
+                }
             }
         }).start();
     }
@@ -155,13 +163,11 @@ public class DashboardActivity extends Activity {
     }
 
     private static String extractOtp(String message) {
-        // Match 4-8 digit standalone numbers (OTP pattern)
         Pattern p = Pattern.compile("\\b([0-9]{4,8})\\b");
         Matcher m = p.matcher(message);
         String best = null;
         while (m.find()) {
             String found = m.group(1);
-            // Prefer 6-digit OTPs, else take whatever we find first
             if (best == null || found.length() == 6) best = found;
         }
         return best;
@@ -177,7 +183,7 @@ public class DashboardActivity extends Activity {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         String title   = otp != null ? "OTP: " + otp + "  (" + sender + ")" : "SMS: " + sender;
-        String bigText = otp != null ? "🔐 OTP: " + otp + "\n\n" + message : message;
+        String bigText = otp != null ? "OTP: " + otp + "\n\n" + message : message;
 
         Notification n = new Notification.Builder(this, CH_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_email)
@@ -196,7 +202,6 @@ public class DashboardActivity extends Activity {
 
         nm.notify(nid.getAndIncrement(), n);
 
-        // Auto-copy OTP to clipboard
         if (otp != null) {
             runOnUiThread(() -> {
                 ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
@@ -217,6 +222,7 @@ public class DashboardActivity extends Activity {
 
     private void logout() {
         prefs.edit().clear().apply();
+        handler.removeCallbacks(pollTask);
         startActivity(new Intent(this, LoginActivity.class));
         finish();
     }

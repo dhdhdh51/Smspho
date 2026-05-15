@@ -12,21 +12,24 @@ require_once __DIR__ . '/../config/database.php';
 
 startSecureSession();
 
-// Allow API key auth for mobile app
+// API key auth for mobile app
 $apiKey = trim($_GET['api_key'] ?? $_SERVER['HTTP_X_API_KEY'] ?? '');
 if ($apiKey) {
-    require_once __DIR__ . '/../config/database.php';
     $db   = getDB();
     $stmt = $db->prepare('SELECT * FROM users WHERE api_key = ? LIMIT 1');
     $stmt->execute([$apiKey]);
     $user = $stmt->fetch();
-    if (!$user) { http_response_code(401); echo json_encode(['error' => 'Invalid API key']); exit; }
-} elseif (!isLoggedIn()) {
+    if (!$user) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Invalid API key']);
+        exit;
+    }
+} elseif (isLoggedIn()) {
+    $user = currentUser();
+} else {
     http_response_code(401);
     echo json_encode(['error' => 'Unauthorized']);
     exit;
-} else {
-    $user = currentUser();
 }
 $userId = $user['id'];
 $db     = getDB();
