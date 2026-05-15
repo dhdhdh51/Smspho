@@ -182,7 +182,7 @@ public class PollService extends Service {
             .setStyle(new Notification.BigTextStyle().bigText(bigText))
             .setContentIntent(pi)
             .setAutoCancel(true)
-            .setTimeoutAfter(5000)
+            .setTimeoutAfter(20000)
             .setPriority(Notification.PRIORITY_MAX)
             .setCategory(Notification.CATEGORY_MESSAGE)
             .setFullScreenIntent(pi, true)
