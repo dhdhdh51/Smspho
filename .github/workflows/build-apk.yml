@@ -8,9 +8,6 @@ on:
 permissions:
   contents: write
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -25,11 +22,11 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Gradle 8.4
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.4'
-          cache-disabled: true
+      - name: Download Gradle 8.4
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.4-bin.zip -O /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp/gradle
+          echo "/tmp/gradle/gradle-8.4/bin" >> $GITHUB_PATH
 
       - name: Write local.properties
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
@@ -51,12 +48,9 @@ jobs:
           name: "SMS Dashboard APK - Build #${{ github.run_number }}"
           body: |
             ## SMS Dashboard APK Ready!
-
-            ### Install Steps:
-            1. Neeche SMSDashboard.apk download karo
+            1. SMSDashboard.apk download karo
             2. Phone mein install karo
-            3. Agar blocked ho → Settings → Install unknown apps → Allow
-            4. App kholo → API Key daalo → Save
-            5. Done! SMS automatically forward hoga
+            3. Settings > Unknown apps > Allow
+            4. API Key daalo > Save
           files: app/build/outputs/apk/debug/app-debug.apk
           token: ${{ secrets.GITHUB_TOKEN }}
