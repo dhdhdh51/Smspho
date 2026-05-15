@@ -5,6 +5,8 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
@@ -19,6 +21,8 @@ import android.widget.Toast;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class DashboardActivity extends Activity {
 
@@ -150,18 +154,36 @@ public class DashboardActivity extends Activity {
         listView.setVisibility(empty ? View.GONE : View.VISIBLE);
     }
 
+    private static String extractOtp(String message) {
+        // Match 4-8 digit standalone numbers (OTP pattern)
+        Pattern p = Pattern.compile("\\b([0-9]{4,8})\\b");
+        Matcher m = p.matcher(message);
+        String best = null;
+        while (m.find()) {
+            String found = m.group(1);
+            // Prefer 6-digit OTPs, else take whatever we find first
+            if (best == null || found.length() == 6) best = found;
+        }
+        return best;
+    }
+
     private void showNotification(String sender, String message) {
+        String otp = extractOtp(message);
+
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         Intent tap = new Intent(this, DashboardActivity.class);
         tap.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent pi = PendingIntent.getActivity(this, 0, tap,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
+        String title   = otp != null ? "OTP: " + otp + "  (" + sender + ")" : "SMS: " + sender;
+        String bigText = otp != null ? "🔐 OTP: " + otp + "\n\n" + message : message;
+
         Notification n = new Notification.Builder(this, CH_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_email)
-            .setContentTitle("SMS: " + sender)
-            .setContentText(message)
-            .setStyle(new Notification.BigTextStyle().bigText(message))
+            .setContentTitle(title)
+            .setContentText(otp != null ? otp : message)
+            .setStyle(new Notification.BigTextStyle().bigText(bigText))
             .setContentIntent(pi)
             .setAutoCancel(true)
             .setTimeoutAfter(5000)
@@ -173,6 +195,15 @@ public class DashboardActivity extends Activity {
             .build();
 
         nm.notify(nid.getAndIncrement(), n);
+
+        // Auto-copy OTP to clipboard
+        if (otp != null) {
+            runOnUiThread(() -> {
+                ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                cm.setPrimaryClip(ClipData.newPlainText("OTP", otp));
+                Toast.makeText(this, "OTP copied: " + otp, Toast.LENGTH_SHORT).show();
+            });
+        }
     }
 
     private void createNotifChannel() {
