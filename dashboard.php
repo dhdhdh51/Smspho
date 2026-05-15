@@ -696,22 +696,49 @@ async function setPassword() {
 // ── Init ─────────────────────────────────────────────────
 loadMessages().then(() => startStream());
 
-// ── Server-Sent Events (real-time) ───────────────────────
-let evtSource = null;
+// ── Real-time: SSE with polling fallback ─────────────────
+let evtSource    = null;
+let pollInterval = null;
+let sseWorking   = false;
+
+function startPollingFallback() {
+  if (pollInterval) return;
+  pollInterval = setInterval(async () => {
+    if (sseWorking) { clearInterval(pollInterval); pollInterval = null; return; }
+    try {
+      const r = await fetch('/api/messages.php?limit=10&since_id=' + lastId);
+      const d = await r.json();
+      const msgs = Array.isArray(d) ? d : (d.messages || []);
+      msgs.forEach(m => {
+        if (m.id > lastId) {
+          if (!currentSender || currentSender === m.sender) {
+            document.getElementById('messagesList').insertAdjacentHTML('afterbegin', renderMessage(m));
+          }
+          lastId = Math.max(lastId, m.id);
+        }
+      });
+    } catch(e) {}
+  }, 3000);
+}
+
 function startStream() {
   if (evtSource) evtSource.close();
   evtSource = new EventSource('/api/stream.php?since_id=' + lastId);
 
+  evtSource.onopen = () => {
+    sseWorking = true;
+    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+  };
+
   evtSource.onmessage = e => {
+    sseWorking = true;
     const data = JSON.parse(e.data);
     if (data.type === 'sms') {
-      // Only show if no sender filter, or matches current filter
       if (!currentSender || currentSender === data.sender) {
         const list = document.getElementById('messagesList');
         list.insertAdjacentHTML('afterbegin', renderMessage(data));
       }
       lastId = Math.max(lastId, data.id);
-      // Browser notification
       if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
         new Notification('New SMS from ' + data.sender, {
           body: data.message.substring(0, 100),
@@ -723,13 +750,14 @@ function startStream() {
   };
 
   evtSource.onerror = () => {
+    sseWorking = false;
     evtSource.close();
-    // Fallback: retry SSE after 5 seconds
-    setTimeout(startStream, 5000);
+    startPollingFallback();        // poll every 3s while SSE is down
+    setTimeout(startStream, 10000); // retry SSE after 10s
   };
 }
 
-// Keep full list fresh every 2 minutes (for counts/sidebar)
+// Full refresh every 2 minutes
 setInterval(() => loadMessages(true), 120000);
 
 // Keyboard shortcut: / to focus search
