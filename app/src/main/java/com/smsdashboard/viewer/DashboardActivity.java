@@ -9,7 +9,9 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -65,6 +67,8 @@ public class DashboardActivity extends Activity {
 
         lastId = prefs.getInt("last_id", 0);
         createNotifChannel();
+        requestNotifPermission();
+        startPollService();
         fetchMessages(true);
 
         findViewById(R.id.btnLogout).setOnClickListener(v -> logout());
@@ -101,7 +105,7 @@ public class DashboardActivity extends Activity {
      * Handles { } inside string values correctly — skips them.
      * e.g., inner = '{"id":1,"msg":"hi {test}"},{"id":2,...}'
      */
-    private static List<String> extractObjects(String inner) {
+    static List<String> extractObjects(String inner) {
         List<String> result = new ArrayList<>();
         int depth = 0, start = -1;
         boolean inStr = false, escape = false;
@@ -267,6 +271,22 @@ public class DashboardActivity extends Activity {
         }
     }
 
+    private void requestNotifPermission() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                    != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 99);
+            }
+        }
+    }
+
+    private void startPollService() {
+        String apiKey = prefs.getString("api_key", "");
+        if (apiKey.isEmpty()) return;
+        Intent svc = new Intent(this, PollService.class);
+        startForegroundService(svc);
+    }
+
     private void createNotifChannel() {
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         NotificationChannel ch = new NotificationChannel(CH_ID, "SMS Alerts", NotificationManager.IMPORTANCE_HIGH);
@@ -278,6 +298,7 @@ public class DashboardActivity extends Activity {
 
     private void logout() {
         handler.removeCallbacks(pollTask);
+        stopService(new Intent(this, PollService.class));
         prefs.edit().clear().apply();
         startActivity(new Intent(this, LoginActivity.class));
         finish();
