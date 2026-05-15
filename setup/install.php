@@ -23,8 +23,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->exec("CREATE DATABASE IF NOT EXISTS `{$dbname}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
         $pdo->exec("USE `{$dbname}`");
         $sql = file_get_contents(__DIR__ . '/install.sql');
-        // Strip CREATE DATABASE / USE lines since we already handled them
-        $sql = preg_replace('/^(CREATE DATABASE|USE).+$/mi', '', $sql);
+        // Remove all comment lines and CREATE DATABASE / USE statements
+        $sql = preg_replace('/--[^\n]*/m', '', $sql);
+        $sql = preg_replace('/^\s*(CREATE\s+DATABASE|USE)\s+[^;]+;/mi', '', $sql);
         foreach (array_filter(array_map('trim', explode(';', $sql))) as $stmt) {
             $pdo->exec($stmt);
         }
