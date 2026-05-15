@@ -60,15 +60,19 @@ if (!$user) {
 
 $userId = $user['id'];
 
-// Check if sender is allowed (case-insensitive match)
-$stmt = $db->prepare(
-    'SELECT 1 FROM allowed_senders WHERE user_id = ? AND LOWER(sender_name) = LOWER(?) LIMIT 1'
-);
-$stmt->execute([$userId, $sender]);
+// Check allowed_senders — if list is empty, accept all; otherwise filter
+$countStmt = $db->prepare('SELECT COUNT(*) FROM allowed_senders WHERE user_id = ?');
+$countStmt->execute([$userId]);
+$allowedCount = (int) $countStmt->fetchColumn();
 
-if (!$stmt->fetch()) {
-    // Silently accept but discard (don't error – SMS Forwarder apps retry on error)
-    respond(200, ['status' => 'ignored', 'reason' => 'Sender not in allowlist']);
+if ($allowedCount > 0) {
+    $stmt = $db->prepare(
+        'SELECT 1 FROM allowed_senders WHERE user_id = ? AND LOWER(sender_name) = LOWER(?) LIMIT 1'
+    );
+    $stmt->execute([$userId, $sender]);
+    if (!$stmt->fetch()) {
+        respond(200, ['status' => 'ignored', 'reason' => 'Sender not in allowlist']);
+    }
 }
 
 // Sanitize
