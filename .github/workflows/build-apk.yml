@@ -23,13 +23,16 @@ jobs:
           distribution: 'temurin'
 
       - name: Write local.properties
-        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+        run: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          echo "Android SDK: $ANDROID_SDK_ROOT"
+          ls "$ANDROID_SDK_ROOT/build-tools/" || echo "No build-tools found"
 
       - name: Make gradlew executable
         run: chmod +x gradlew
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: ./gradlew assembleDebug --no-daemon --stacktrace 2>&1
 
       - name: Rename APK
         run: mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/SMSDashboard.apk
