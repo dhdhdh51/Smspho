@@ -79,7 +79,13 @@ $msgStmt = $db->prepare(
 $msgStmt->execute($params);
 $messages = $msgStmt->fetchAll();
 
-// Senders list
+// Mobile app (api_key): return plain array only
+if ($apiKey) {
+    echo json_encode($messages);
+    exit;
+}
+
+// Web dashboard: full response with senders list
 $sendersStmt = $db->prepare(
     'SELECT DISTINCT sender, COUNT(*) as cnt
      FROM sms_messages WHERE user_id = ?
