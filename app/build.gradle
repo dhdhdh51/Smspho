@@ -1,0 +1,37 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    compileSdk 34
+    namespace 'com.smsdashboard.viewer'
+
+    defaultConfig {
+        applicationId "com.smsdashboard.viewer"
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        release {
+            storeFile     file('smsdashboard.jks')
+            storePassword 'smsdashboard123'
+            keyAlias      'smsdashboard'
+            keyPassword   'smsdashboard123'
+        }
+    }
+
+    buildTypes {
+        debug   { signingConfig signingConfigs.release }
+        release { signingConfig signingConfigs.release; minifyEnabled false }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {}
