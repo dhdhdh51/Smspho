@@ -635,10 +635,42 @@ async function removeSender(id) {
 function openApiModal() { document.getElementById('apiModal').classList.remove('hidden'); }
 
 // ── Init ─────────────────────────────────────────────────
-loadMessages();
-// Poll for new messages every 15 seconds
-polling = setInterval(pollNewMessages, 15000);
-// Reload full list every 2 minutes to keep counts fresh
+loadMessages().then(() => startStream());
+
+// ── Server-Sent Events (real-time) ───────────────────────
+let evtSource = null;
+function startStream() {
+  if (evtSource) evtSource.close();
+  evtSource = new EventSource('/api/stream.php?since_id=' + lastId);
+
+  evtSource.onmessage = e => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'sms') {
+      // Only show if no sender filter, or matches current filter
+      if (!currentSender || currentSender === data.sender) {
+        const list = document.getElementById('messagesList');
+        list.insertAdjacentHTML('afterbegin', renderMessage(data));
+      }
+      lastId = Math.max(lastId, data.id);
+      // Browser notification
+      if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+        new Notification('New SMS from ' + data.sender, {
+          body: data.message.substring(0, 100),
+          icon: '/icons/icon-192.png',
+        });
+      }
+    }
+    if (data.type === 'reconnect') startStream();
+  };
+
+  evtSource.onerror = () => {
+    evtSource.close();
+    // Fallback: retry SSE after 5 seconds
+    setTimeout(startStream, 5000);
+  };
+}
+
+// Keep full list fresh every 2 minutes (for counts/sidebar)
 setInterval(() => loadMessages(true), 120000);
 
 // Keyboard shortcut: / to focus search
