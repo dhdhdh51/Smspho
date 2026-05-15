@@ -61,4 +61,4 @@ CREATE TABLE IF NOT EXISTS `push_subscriptions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ─── Default Allowed Senders (examples) ──────────────────────
--- These will be inserted per-user upon first login; see install.php
+-- These will be inserted per-user upon first login (see install.php)
