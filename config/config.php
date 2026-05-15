@@ -20,8 +20,9 @@ define('SESSION_TIMEOUT', 3600); // seconds (1 hour)
 define('MASTER_API_KEY',  'CHANGE_THIS_TO_A_LONG_RANDOM_STRING_MIN_32_CHARS'); // ← badlo zaroor
 
 // ─── Access control ────────────────────────────────────────────────────────
-// Sirf yahi email login kar sakta hai
-define('ALLOWED_EMAILS', 'your_email@gmail.com'); // ← apna Gmail daalo
+// '' ya '*' = koi bhi Google account login kar sakta hai (open multi-user)
+// Restrict karna ho toh: 'user1@gmail.com,user2@gmail.com'
+define('ALLOWED_EMAILS', '*');
 
 // ─── Push Notifications (VAPID) — Optional ─────────────────────────────────
 // Generate at: https://vapidkeys.com/

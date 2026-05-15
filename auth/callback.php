@@ -69,10 +69,6 @@ if (empty($profile['email'])) {
 
 $email = strtolower($profile['email']);
 
-if (!isEmailAllowed($email)) {
-    $error('Access denied. Your Google account is not authorized.'); exit;
-}
-
 // Upsert user
 $db   = getDB();
 $stmt = $db->prepare('SELECT * FROM users WHERE email = ? LIMIT 1');

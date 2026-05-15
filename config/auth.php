@@ -58,7 +58,10 @@ function verifyCsrf(string $token): bool {
 }
 
 function isEmailAllowed(string $email): bool {
-    $allowed = array_map('trim', explode(',', ALLOWED_EMAILS));
+    $list = trim(ALLOWED_EMAILS);
+    // Empty or * means anyone can login
+    if ($list === '' || $list === '*') return true;
+    $allowed = array_map('trim', explode(',', $list));
     return in_array(strtolower($email), array_map('strtolower', $allowed), true);
 }
 
