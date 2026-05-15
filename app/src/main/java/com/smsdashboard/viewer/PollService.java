@@ -5,6 +5,8 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
@@ -12,6 +14,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import java.net.URLEncoder;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -26,10 +29,11 @@ public class PollService extends Service {
     private static final String MSG_CH      = "sms_native";
     private static final AtomicInteger nid  = new AtomicInteger(2000);
 
-    private Handler          handler;
+    private Handler           handler;
     private SharedPreferences prefs;
-    private int              lastId = 0;
-    private final AtomicBoolean polling = new AtomicBoolean(false);
+    private int               lastId      = 0;
+    private boolean           initialized = false; // silent on first poll if lastId==0
+    private final AtomicBoolean polling   = new AtomicBoolean(false);
 
     private final Runnable pollTask = new Runnable() {
         @Override public void run() {
@@ -48,7 +52,8 @@ public class PollService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        lastId = prefs.getInt("last_id", 0);
+        lastId      = prefs.getInt("last_id", 0);
+        initialized = lastId > 0; // already have a known position → notify immediately
         startForeground(FG_NOTIF_ID, buildForegroundNotif());
         handler.removeCallbacks(pollTask);
         handler.post(pollTask);
@@ -64,9 +69,11 @@ public class PollService extends Service {
     @Override public IBinder onBind(Intent i) { return null; }
 
     private void doPoll() {
-        if (!polling.compareAndSet(false, true)) return; // skip if previous still running
+        if (!polling.compareAndSet(false, true)) return;
         String apiKey = prefs.getString("api_key", "");
         if (apiKey.isEmpty()) { stopSelf(); polling.set(false); return; }
+
+        final boolean notifyThisRound = initialized;
 
         new Thread(() -> {
             try {
@@ -77,7 +84,7 @@ public class PollService extends Service {
                 String inner = extractInner(resp);
                 if (inner == null || inner.isEmpty()) return;
 
-                List<String> objects = DashboardActivity.extractObjects(inner);
+                List<String> objects = extractObjects(inner);
                 for (String obj : objects) {
                     int    id   = Api.num(obj, "id");
                     String from = Api.str(obj, "sender");
@@ -86,15 +93,20 @@ public class PollService extends Service {
                     if (id > lastId) {
                         lastId = id;
                         prefs.edit().putInt("last_id", lastId).apply();
-                        showMsgNotification(from, msg);
+                        if (notifyThisRound) {
+                            showMsgNotification(from, msg);
+                        }
                     }
                 }
             } catch (Exception ignored) {
             } finally {
+                initialized = true; // from second poll onwards, always notify
                 polling.set(false);
             }
         }).start();
     }
+
+    // ── JSON helpers ──────────────────────────────────────────────────────────
 
     private String extractInner(String resp) {
         if (resp.startsWith("[")) {
@@ -107,9 +119,9 @@ public class PollService extends Service {
             boolean inStr = false, esc = false;
             while (p < resp.length() && depth > 0) {
                 char c = resp.charAt(p);
-                if (esc)             { esc = false; }
+                if (esc)              { esc = false; }
                 else if (c == '\\' && inStr) { esc = true; }
-                else if (c == '"')   { inStr = !inStr; }
+                else if (c == '"')    { inStr = !inStr; }
                 else if (!inStr) {
                     if (c == '[') depth++;
                     else if (c == ']') depth--;
@@ -119,6 +131,25 @@ public class PollService extends Service {
             return resp.substring(s, p - 1).trim();
         }
         return null;
+    }
+
+    static List<String> extractObjects(String inner) {
+        List<String> result = new ArrayList<>();
+        int depth = 0, start = -1;
+        boolean inStr = false, escape = false;
+        for (int i = 0; i < inner.length(); i++) {
+            char c = inner.charAt(i);
+            if (escape)             { escape = false; continue; }
+            if (c == '\\' && inStr) { escape = true;  continue; }
+            if (c == '"')           { inStr = !inStr;  continue; }
+            if (inStr) continue;
+            if (c == '{') { if (depth == 0) start = i; depth++; }
+            else if (c == '}') {
+                depth--;
+                if (depth == 0 && start >= 0) { result.add(inner.substring(start, i + 1)); start = -1; }
+            }
+        }
+        return result;
     }
 
     private static String extractOtp(String msg) {
@@ -136,7 +167,7 @@ public class PollService extends Service {
         String otp = extractOtp(message);
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
 
-        Intent tap = new Intent(this, DashboardActivity.class);
+        Intent tap = new Intent(this, MainActivity.class);
         tap.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent pi = PendingIntent.getActivity(this, nid.get(), tap,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -161,15 +192,15 @@ public class PollService extends Service {
 
         nm.notify(nid.getAndIncrement(), n);
 
+        // Copy OTP to clipboard
         if (otp != null) {
-            android.content.ClipboardManager cm =
-                (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-            cm.setPrimaryClip(android.content.ClipData.newPlainText("OTP", otp));
+            ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            cm.setPrimaryClip(ClipData.newPlainText("OTP", otp));
         }
     }
 
     private Notification buildForegroundNotif() {
-        Intent tap = new Intent(this, DashboardActivity.class);
+        Intent tap = new Intent(this, MainActivity.class);
         PendingIntent pi = PendingIntent.getActivity(this, 0, tap,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, FG_CH)
@@ -183,10 +214,8 @@ public class PollService extends Service {
 
     private void createChannels() {
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        // Foreground service channel (silent)
         NotificationChannel fg = new NotificationChannel(FG_CH, "SMS Monitor", NotificationManager.IMPORTANCE_LOW);
         nm.createNotificationChannel(fg);
-        // Message alert channel (high priority)
         NotificationChannel msg = new NotificationChannel(MSG_CH, "SMS Alerts", NotificationManager.IMPORTANCE_HIGH);
         msg.enableLights(true);
         msg.setLightColor(Color.BLUE);
