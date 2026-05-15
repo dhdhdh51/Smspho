@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
+import android.os.Bundle;
 import android.telephony.SmsMessage;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -18,18 +19,15 @@ public class SmsReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         if (!"android.provider.Telephony.SMS_RECEIVED".equals(intent.getAction())) return;
 
-        Object[] pdus = (Object[]) intent.getSerializableExtra("pdus");
+        Bundle bundle = intent.getExtras();
+        if (bundle == null) return;
+        Object[] pdus = (Object[]) bundle.get("pdus");
         if (pdus == null || pdus.length == 0) return;
 
-        String format = intent.getStringExtra("format");
+        String format = bundle.getString("format");
 
         for (Object pdu : pdus) {
-            SmsMessage sms;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                sms = SmsMessage.createFromPdu((byte[]) pdu, format);
-            } else {
-                sms = SmsMessage.createFromPdu((byte[]) pdu);
-            }
+            SmsMessage sms = SmsMessage.createFromPdu((byte[]) pdu, format);
             if (sms == null) continue;
 
             String sender  = sms.getDisplayOriginatingAddress();
