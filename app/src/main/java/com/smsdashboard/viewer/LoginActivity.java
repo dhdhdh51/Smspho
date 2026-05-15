@@ -16,6 +16,7 @@ public class LoginActivity extends Activity {
     private EditText etEmail, etPass;
     private Button btnLogin;
     private ProgressBar progress;
+    private TextView tvServer;
     private SharedPreferences prefs;
 
     @Override
@@ -23,11 +24,14 @@ public class LoginActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        prefs    = getSharedPreferences("sms_viewer", MODE_PRIVATE);
-        etEmail  = findViewById(R.id.etEmail);
-        etPass   = findViewById(R.id.etPass);
-        btnLogin = findViewById(R.id.btnLogin);
-        progress = findViewById(R.id.progress);
+        prefs     = getSharedPreferences("sms_viewer", MODE_PRIVATE);
+        etEmail   = findViewById(R.id.etEmail);
+        etPass    = findViewById(R.id.etPass);
+        btnLogin  = findViewById(R.id.btnLogin);
+        progress  = findViewById(R.id.progress);
+        tvServer  = findViewById(R.id.tvServer);
+
+        tvServer.setText("Server: " + Api.BASE);
 
         // Already logged in
         if (!prefs.getString("api_key", "").isEmpty()) {
@@ -56,6 +60,10 @@ public class LoginActivity extends Activity {
                 String apiKey = Api.str(resp, "api_key");
                 String name   = Api.str(resp, "name");
 
+                if (apiKey.isEmpty()) {
+                    throw new Exception("Server ne api_key nahi diya. Response: " + resp);
+                }
+
                 runOnUiThread(() -> {
                     prefs.edit()
                         .putString("api_key", apiKey)
@@ -65,10 +73,14 @@ public class LoginActivity extends Activity {
                     goToDashboard();
                 });
             } catch (Exception e) {
+                String msg = e.getMessage() != null ? e.getMessage() : "Unknown error";
+                // Extract clean error from JSON if possible
+                String jsonErr = Api.str(msg, "error");
+                String display = jsonErr.isEmpty() ? msg : jsonErr;
                 runOnUiThread(() -> {
                     progress.setVisibility(View.GONE);
                     btnLogin.setEnabled(true);
-                    Toast.makeText(this, "Login failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, display, Toast.LENGTH_LONG).show();
                 });
             }
         }).start();

@@ -31,7 +31,7 @@ public class DashboardActivity extends Activity {
     private static final AtomicInteger nid = new AtomicInteger(3000);
 
     private ListView listView;
-    private TextView tvEmpty, tvUser;
+    private TextView tvEmpty, tvUser, tvStatus;
     private final ArrayList<String> items = new ArrayList<>();
     private ArrayAdapter<String> adapter;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -55,6 +55,7 @@ public class DashboardActivity extends Activity {
         listView = findViewById(R.id.listView);
         tvEmpty  = findViewById(R.id.tvEmpty);
         tvUser   = findViewById(R.id.tvUser);
+        tvStatus = findViewById(R.id.tvStatus);
 
         tvUser.setText(prefs.getString("name", "Dashboard"));
 
@@ -71,6 +72,7 @@ public class DashboardActivity extends Activity {
             adapter.notifyDataSetChanged();
             lastId = 0;
             firstLoad = true;
+            setStatus("Refreshing...", "#64748B");
             fetchMessages(true);
         });
     }
@@ -85,6 +87,14 @@ public class DashboardActivity extends Activity {
         handler.removeCallbacks(pollTask);
     }
 
+    private void setStatus(String text, String hexColor) {
+        runOnUiThread(() -> {
+            tvStatus.setText(text);
+            try { tvStatus.setTextColor(Color.parseColor(hexColor)); } catch (Exception ignored) {}
+            tvStatus.setVisibility(View.VISIBLE);
+        });
+    }
+
     private void fetchMessages(boolean full) {
         String apiKey = prefs.getString("api_key", "");
         if (apiKey.isEmpty()) { logout(); return; }
@@ -96,17 +106,15 @@ public class DashboardActivity extends Activity {
                     + "&api_key=" + URLEncoder.encode(apiKey, "UTF-8");
                 String resp = Api.get(path).trim();
 
-                // Server returns plain JSON array: [{...},{...}]
                 if (!resp.startsWith("[")) {
-                    runOnUiThread(() ->
-                        Toast.makeText(this, "Server error: " + resp, Toast.LENGTH_LONG).show()
-                    );
+                    String errMsg = Api.str(resp, "error");
+                    if (errMsg.isEmpty()) errMsg = resp.length() > 120 ? resp.substring(0, 120) + "..." : resp;
+                    final String finalErr = errMsg;
+                    setStatus("Server error: " + finalErr, "#EF4444");
                     return;
                 }
 
-                // Strip outer brackets
                 String inner = resp.substring(1, resp.length() - 1).trim();
-
                 ArrayList<String> newItems = new ArrayList<>();
                 int newLastId = lastId;
 
@@ -119,11 +127,7 @@ public class DashboardActivity extends Activity {
                         String time = Api.str(part, "received_at");
                         if (id == 0 || from.isEmpty()) continue;
                         if (id > newLastId) newLastId = id;
-
-                        if (!firstLoad && id > lastId) {
-                            showNotification(from, msg);
-                        }
-                        // Server returns newest-first; preserve that order
+                        if (!firstLoad && id > lastId) showNotification(from, msg);
                         newItems.add(from + "\n" + msg + "\n" + time);
                     }
                 }
@@ -132,27 +136,22 @@ public class DashboardActivity extends Activity {
                 firstLoad = false;
 
                 runOnUiThread(() -> {
-                    if (full) {
-                        items.clear();
-                        items.addAll(newItems);
-                    } else {
-                        items.addAll(0, newItems);
-                    }
+                    if (full) { items.clear(); items.addAll(newItems); }
+                    else items.addAll(0, newItems);
                     adapter.notifyDataSetChanged();
                     showEmpty(items.isEmpty());
                     lastId = finalLastId;
                     prefs.edit().putInt("last_id", lastId).apply();
+                    setStatus("Connected  •  " + items.size() + " messages", "#22C55E");
                 });
 
             } catch (Exception e) {
-                String errMsg = e.getMessage() != null ? e.getMessage() : "Unknown error";
-                if (errMsg.contains("401") || errMsg.contains("Unauthorized") || errMsg.contains("Invalid API")) {
-                    runOnUiThread(this::logout);
-                } else if (full) {
-                    runOnUiThread(() ->
-                        Toast.makeText(this, "Error: " + errMsg, Toast.LENGTH_LONG).show()
-                    );
-                }
+                String raw = e.getMessage() != null ? e.getMessage() : "Unknown error";
+                String jsonErr = Api.str(raw, "error");
+                String display = jsonErr.isEmpty() ? raw : jsonErr;
+                if (display.length() > 150) display = display.substring(0, 150) + "...";
+                setStatus("Error: " + display, "#EF4444");
+                // Never auto-logout on network errors
             }
         }).start();
     }
@@ -175,7 +174,6 @@ public class DashboardActivity extends Activity {
 
     private void showNotification(String sender, String message) {
         String otp = extractOtp(message);
-
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         Intent tap = new Intent(this, DashboardActivity.class);
         tap.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -221,8 +219,8 @@ public class DashboardActivity extends Activity {
     }
 
     private void logout() {
-        prefs.edit().clear().apply();
         handler.removeCallbacks(pollTask);
+        prefs.edit().clear().apply();
         startActivity(new Intent(this, LoginActivity.class));
         finish();
     }

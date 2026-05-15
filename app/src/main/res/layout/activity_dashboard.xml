@@ -48,6 +48,18 @@
 
     </LinearLayout>
 
+    <!-- Status bar: Connected / Error -->
+    <TextView
+        android:id="@+id/tvStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="6dp"
+        android:paddingStart="16dp"
+        android:textSize="11sp"
+        android:text="Connecting..."
+        android:textColor="#64748B"
+        android:visibility="visible"/>
+
     <!-- Empty state -->
     <TextView
         android:id="@+id/tvEmpty"

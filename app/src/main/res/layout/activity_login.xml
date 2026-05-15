@@ -68,4 +68,12 @@
         android:visibility="gone"
         android:indeterminateTint="#3B82F6"/>
 
+    <TextView
+        android:id="@+id/tvServer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#334155"
+        android:textSize="11sp"
+        android:layout_marginTop="24dp"/>
+
 </LinearLayout>
