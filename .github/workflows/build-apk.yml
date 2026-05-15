@@ -22,23 +22,22 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Setup Gradle 8.4
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.4'
+
       - name: Write local.properties
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 
-      - name: Make gradlew executable
-        run: chmod +x gradlew
-
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon
-
-      - name: Rename APK
-        run: mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/SMSDashboard.apk
+        run: gradle assembleDebug --no-daemon
 
       - name: Upload APK as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: SMSDashboard-APK
-          path: app/build/outputs/apk/debug/SMSDashboard.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
       - name: Create GitHub Release
@@ -55,5 +54,5 @@ jobs:
             3. Agar blocked ho → Settings → Install unknown apps → Allow
             4. App kholo → API Key daalo → Save
             5. Done! SMS automatically forward hoga
-          files: app/build/outputs/apk/debug/SMSDashboard.apk
+          files: app/build/outputs/apk/debug/app-debug.apk
           token: ${{ secrets.GITHUB_TOKEN }}
