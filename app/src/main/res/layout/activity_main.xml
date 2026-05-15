@@ -8,151 +8,150 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp">
+        android:padding="20dp">
 
         <!-- Header -->
-        <LinearLayout
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
+            android:text="SMS Dashboard"
+            android:textColor="#60A5FA"
+            android:textSize="22sp"
+            android:textStyle="bold"
             android:gravity="center"
-            android:background="#1E3A5F"
-            android:padding="32dp"
-            android:layout_marginBottom="24dp">
+            android:paddingTop="20dp"
+            android:paddingBottom="4dp"/>
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="📱"
-                android:textSize="48sp"
-                android:layout_marginBottom="8dp"/>
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="sms.bharatseo.site"
+            android:textColor="#475569"
+            android:textSize="12sp"
+            android:gravity="center"
+            android:layout_marginBottom="24dp"/>
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="SMS Dashboard"
-                android:textColor="#FFFFFF"
-                android:textSize="24sp"
-                android:textStyle="bold"/>
+        <!-- Status -->
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Status: Checking..."
+            android:textColor="#94A3B8"
+            android:textSize="13sp"
+            android:background="#1E293B"
+            android:padding="12dp"
+            android:layout_marginBottom="8dp"/>
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="sms.bharatseo.site"
-                android:textColor="#93C5FD"
-                android:textSize="13sp"
-                android:layout_marginTop="4dp"/>
-        </LinearLayout>
-
-        <!-- API Key Card -->
+        <!-- API Key -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:background="#1E293B"
-            android:padding="20dp"
-            android:layout_marginBottom="16dp">
+            android:padding="16dp"
+            android:layout_marginBottom="8dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🔑  API Key"
-                android:textColor="#FFFFFF"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="6dp"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Dashboard → Sidebar → API Settings → Copy karo"
-                android:textColor="#64748B"
+                android:text="API Key"
+                android:textColor="#94A3B8"
                 android:textSize="12sp"
-                android:layout_marginBottom="12dp"/>
+                android:layout_marginBottom="6dp"/>
 
             <EditText
                 android:id="@+id/etApiKey"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="API Key yahan paste karo"
+                android:hint="Dashboard se copy karo"
                 android:textColorHint="#475569"
                 android:textColor="#F1F5F9"
                 android:textSize="13sp"
                 android:background="#0F172A"
-                android:padding="14dp"
-                android:layout_marginBottom="12dp"/>
+                android:padding="12dp"
+                android:layout_marginBottom="10dp"/>
 
-            <Button
-                android:id="@+id/btnSave"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="💾  Save API Key"
-                android:textColor="#FFFFFF"
-                android:textStyle="bold"
-                android:background="#3B82F6"
-                android:padding="14dp"/>
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnSave"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Save"
+                    android:textColor="#FFFFFF"
+                    android:background="#3B82F6"
+                    android:layout_marginEnd="8dp"/>
+
+                <Button
+                    android:id="@+id/btnTest"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Test Send"
+                    android:textColor="#FFFFFF"
+                    android:background="#7C3AED"/>
+
+            </LinearLayout>
         </LinearLayout>
 
-        <!-- Status Card -->
+        <!-- Debug Info -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:background="#1E293B"
-            android:padding="20dp"
-            android:layout_marginBottom="16dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="📊  Status"
-                android:textColor="#FFFFFF"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="12dp"/>
-
-            <TextView
-                android:id="@+id/tvStatus"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Status: Checking..."
-                android:textColor="#94A3B8"
-                android:textSize="13sp"
-                android:layout_marginBottom="8dp"/>
+            android:padding="16dp"
+            android:layout_marginBottom="8dp">
 
             <TextView
                 android:id="@+id/tvCount"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Forwarded: 0"
-                android:textColor="#64748B"
-                android:textSize="12sp"/>
+                android:textColor="#94A3B8"
+                android:textSize="13sp"
+                android:layout_marginBottom="6dp"/>
+
+            <TextView
+                android:id="@+id/tvLastSms"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Last SMS: none yet"
+                android:textColor="#94A3B8"
+                android:textSize="13sp"
+                android:layout_marginBottom="6dp"/>
+
+            <TextView
+                android:id="@+id/tvLastResult"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Server: Waiting..."
+                android:textColor="#FFD700"
+                android:textSize="13sp"/>
+
         </LinearLayout>
 
-        <!-- Info Card -->
+        <!-- Instructions -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:background="#1E293B"
-            android:padding="20dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="ℹ️  Kaise kaam karta hai"
-                android:textColor="#FFFFFF"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="10dp"/>
+            android:padding="16dp">
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="1. API Key save karo dashboard se\n2. App background mein chalta rehega\n3. Koi bhi SMS aate hi automatically dashboard pe forward ho jayega\n4. App band karne ke baad bhi kaam karta hai"
-                android:textColor="#94A3B8"
+                android:text="1. API Key save karo\n2. Test Send dabao - Server OK dikhna chahiye\n3. Koi SMS bhejo - Last SMS mein sender dikhega\n4. Forwarded count badega"
+                android:textColor="#64748B"
                 android:textSize="12sp"
                 android:lineSpacingExtra="4dp"/>
+
         </LinearLayout>
 
     </LinearLayout>
