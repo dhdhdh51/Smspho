@@ -28,8 +28,14 @@ $stmt = $db->prepare('SELECT * FROM users WHERE email = ? LIMIT 1');
 $stmt->execute([$email]);
 $user = $stmt->fetch();
 
-if (!$user || !$user['password'] || !password_verify($pass, $user['password'])) {
-    http_response_code(401); echo json_encode(['error' => 'Invalid email or password']); exit;
+if (!$user) {
+    http_response_code(401); echo json_encode(['error' => 'Email registered nahi hai']); exit;
+}
+if (!$user['password']) {
+    http_response_code(401); echo json_encode(['error' => 'Aapka account Google se linked hai. Dashboard mein jaake Settings > Set Password karo, phir yahan login karo.']); exit;
+}
+if (!password_verify($pass, $user['password'])) {
+    http_response_code(401); echo json_encode(['error' => 'Password galat hai']); exit;
 }
 
 echo json_encode([

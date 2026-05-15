@@ -167,6 +167,10 @@ $csrf = generateCsrf();
           <svg class="w-4 h-4 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
           API Settings
         </button>
+        <button onclick="openPasswordModal()" class="sender-item w-full text-left">
+          <svg class="w-4 h-4 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          Set Password (App Login)
+        </button>
         <button onclick="toggleTheme()" class="sender-item w-full text-left">
           <svg id="themeIcon" class="w-4 h-4 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
           Toggle Theme
@@ -287,6 +291,26 @@ $csrf = generateCsrf();
         <p>• Method: POST</p>
         <p>• Field mapping: <span class="font-mono">api_key, sender, message, device</span></p>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Set Password Modal -->
+<div id="passwordModal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+  <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closePasswordModal()"></div>
+  <div class="relative w-full max-w-md dark:bg-gray-900 bg-white rounded-2xl shadow-2xl overflow-hidden">
+    <div class="flex items-center justify-between p-5 border-b border-gray-800">
+      <h2 class="font-bold text-lg">App ke liye Password Set Karo</h2>
+      <button onclick="closePasswordModal()" class="text-gray-500 p-1">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="p-5 space-y-4">
+      <p class="text-sm text-gray-400">Yeh password Android app mein login karne ke liye use hoga. Email hoga: <span class="text-blue-400"><?= htmlspecialchars($user['email']) ?></span></p>
+      <input type="password" id="pwNew" placeholder="Naya password (min 6 char)" class="w-full rounded-xl border px-3 py-2.5 text-sm dark:bg-gray-800 dark:border-gray-700">
+      <input type="password" id="pwConfirm" placeholder="Password dobara daalo" class="w-full rounded-xl border px-3 py-2.5 text-sm dark:bg-gray-800 dark:border-gray-700">
+      <button onclick="setPassword()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl text-sm">Password Save Karo</button>
+      <p id="pwMsg" class="text-sm text-center hidden"></p>
     </div>
   </div>
 </div>
@@ -633,6 +657,41 @@ async function removeSender(id) {
 }
 
 function openApiModal() { document.getElementById('apiModal').classList.remove('hidden'); }
+
+function openPasswordModal() { document.getElementById('passwordModal').classList.remove('hidden'); }
+function closePasswordModal() { document.getElementById('passwordModal').classList.add('hidden'); }
+
+async function setPassword() {
+  const pass    = document.getElementById('pwNew').value;
+  const confirm = document.getElementById('pwConfirm').value;
+  const msg     = document.getElementById('pwMsg');
+  msg.className = 'text-sm text-center';
+  msg.classList.remove('hidden');
+
+  if (pass.length < 6) { msg.textContent = 'Password kam se kam 6 characters ka hona chahiye'; msg.classList.add('text-red-400'); return; }
+  if (pass !== confirm) { msg.textContent = 'Passwords match nahi kar rahe'; msg.classList.add('text-red-400'); return; }
+
+  msg.textContent = 'Saving...'; msg.classList.add('text-gray-400');
+  try {
+    const r = await fetch('/api/set-password.php', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({password: pass, confirm})
+    });
+    const d = await r.json();
+    if (d.success) {
+      msg.textContent = '✅ ' + d.message;
+      msg.classList.add('text-green-400');
+      document.getElementById('pwNew').value = '';
+      document.getElementById('pwConfirm').value = '';
+    } else {
+      msg.textContent = '❌ ' + (d.error || 'Error');
+      msg.classList.add('text-red-400');
+    }
+  } catch(e) {
+    msg.textContent = '❌ Network error'; msg.classList.add('text-red-400');
+  }
+}
 
 // ── Init ─────────────────────────────────────────────────
 loadMessages().then(() => startStream());
