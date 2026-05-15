@@ -1,9 +1,14 @@
 package com.smsdashboard;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.telephony.SmsMessage;
@@ -16,10 +21,13 @@ import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class SmsReceiver extends BroadcastReceiver {
 
     static final String WEBHOOK = "https://sms.bharatseo.site/api/receive.php";
+    private static final String CHANNEL_ID = "sms_alerts";
+    private static final AtomicInteger notifId = new AtomicInteger(1000);
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -40,20 +48,60 @@ public class SmsReceiver extends BroadcastReceiver {
 
             String sender  = sms.getDisplayOriginatingAddress();
             String message = sms.getMessageBody();
+            String time    = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
 
-            String time = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
             prefs.edit()
                 .putString("last_sms_sender", sender)
                 .putString("last_sms_time", time)
                 .apply();
 
-            if (apiKey.isEmpty()) {
-                prefs.edit().putString("last_status", "FAIL: API Key not set").apply();
-                return;
-            }
+            // Show notification immediately
+            showNotification(context, sender, message);
 
-            forwardSms(context, apiKey, sender, message);
+            if (!apiKey.isEmpty()) {
+                forwardSms(context, apiKey, sender, message);
+            } else {
+                prefs.edit().putString("last_status", "FAIL: API Key not set").apply();
+            }
         }
+    }
+
+    private void showNotification(Context context, String sender, String message) {
+        NotificationManager nm = (NotificationManager)
+            context.getSystemService(Context.NOTIFICATION_SERVICE);
+
+        // Create channel
+        NotificationChannel channel = new NotificationChannel(
+            CHANNEL_ID, "SMS Alerts", NotificationManager.IMPORTANCE_HIGH
+        );
+        channel.setDescription("New SMS notifications");
+        channel.enableLights(true);
+        channel.setLightColor(Color.BLUE);
+        channel.enableVibration(true);
+        channel.setVibrationPattern(new long[]{0, 200, 100, 200});
+        nm.createNotificationChannel(channel);
+
+        // Open app on tap
+        Intent tap = new Intent(context, MainActivity.class);
+        tap.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        PendingIntent pi = PendingIntent.getActivity(
+            context, 0, tap, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        Notification notif = new Notification.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_email)
+            .setContentTitle("SMS: " + sender)
+            .setContentText(message)
+            .setStyle(new Notification.BigTextStyle().bigText(message))
+            .setContentIntent(pi)
+            .setAutoCancel(true)
+            .setTimeoutAfter(5000)          // 5 second baad auto-dismiss
+            .setCategory(Notification.CATEGORY_MESSAGE)
+            .setPriority(Notification.PRIORITY_MAX)
+            .setFullScreenIntent(pi, true)  // Screen ON kare jab phone idle ho
+            .build();
+
+        nm.notify(notifId.getAndIncrement(), notif);
     }
 
     static void forwardSms(Context context, String apiKey, String sender, String message) {

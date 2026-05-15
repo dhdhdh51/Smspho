@@ -7,7 +7,6 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -18,7 +17,7 @@ public class MainActivity extends Activity {
     private TextView tvStatus, tvCount, tvLastSms, tvLastResult;
     private SharedPreferences prefs;
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private static final int REQ_SMS = 100;
+    private static final int REQ_PERMS = 100;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,7 +35,7 @@ public class MainActivity extends Activity {
         refreshUI();
         findViewById(R.id.btnSave).setOnClickListener(v -> saveApiKey());
         findViewById(R.id.btnTest).setOnClickListener(v -> sendTest());
-        requestSmsPermission();
+        requestAllPermissions();
     }
 
     @Override protected void onResume() {
@@ -69,7 +68,7 @@ public class MainActivity extends Activity {
         prefs.edit().putString("api_key", key).apply();
         tvStatus.setText("Status: Active");
         tvStatus.setTextColor(0xFF4ADE80);
-        Toast.makeText(this, "API Key saved!", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Saved!", Toast.LENGTH_SHORT).show();
     }
 
     private void sendTest() {
@@ -81,19 +80,26 @@ public class MainActivity extends Activity {
         handler.postDelayed(this::refreshUI, 4000);
     }
 
-    private void requestSmsPermission() {
-        String[] perms = { Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS };
+    private void requestAllPermissions() {
+        String[] perms = {
+            Manifest.permission.RECEIVE_SMS,
+            Manifest.permission.READ_SMS,
+            Manifest.permission.POST_NOTIFICATIONS
+        };
         boolean need = false;
-        for (String p : perms) if (checkSelfPermission(p) != PackageManager.PERMISSION_GRANTED) { need = true; break; }
-        if (need) requestPermissions(perms, REQ_SMS);
-        else { tvStatus.setText("Status: Permission OK"); tvStatus.setTextColor(0xFF4ADE80); }
+        for (String p : perms) {
+            if (checkSelfPermission(p) != PackageManager.PERMISSION_GRANTED) { need = true; break; }
+        }
+        if (need) requestPermissions(perms, REQ_PERMS);
+        else { tvStatus.setText("Status: All permissions OK"); tvStatus.setTextColor(0xFF4ADE80); }
     }
 
     @Override
     public void onRequestPermissionsResult(int req, String[] perms, int[] results) {
         super.onRequestPermissionsResult(req, perms, results);
-        boolean ok = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
-        tvStatus.setText(ok ? "Status: Permission OK" : "Status: Permission DENIED - use LADB");
-        tvStatus.setTextColor(ok ? 0xFF4ADE80 : 0xFFEF4444);
+        boolean allOk = true;
+        for (int r : results) if (r != PackageManager.PERMISSION_GRANTED) { allOk = false; break; }
+        tvStatus.setText(allOk ? "Status: All permissions OK" : "Status: Some permissions missing - use LADB");
+        tvStatus.setTextColor(allOk ? 0xFF4ADE80 : 0xFFEF4444);
     }
 }
