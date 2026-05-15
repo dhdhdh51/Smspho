@@ -117,6 +117,7 @@ public class DashboardActivity extends Activity {
                 String inner = resp.substring(1, resp.length() - 1).trim();
                 ArrayList<String> newItems = new ArrayList<>();
                 int newLastId = lastId;
+                int parsed = 0, skipped = 0;
 
                 if (!inner.isEmpty()) {
                     String[] parts = inner.split("\\},\\s*\\{");
@@ -125,14 +126,18 @@ public class DashboardActivity extends Activity {
                         String from = Api.str(part, "sender");
                         String msg  = Api.str(part, "message");
                         String time = Api.str(part, "received_at");
-                        if (id == 0 || from.isEmpty()) continue;
+                        if (id == 0 || from.isEmpty()) { skipped++; continue; }
                         if (id > newLastId) newLastId = id;
                         if (!firstLoad && id > lastId) showNotification(from, msg);
                         newItems.add(from + "\n" + msg + "\n" + time);
+                        parsed++;
                     }
                 }
 
                 final int finalLastId = newLastId;
+                final int finalParsed = parsed;
+                final int finalSkipped = skipped;
+                final String debugResp = resp.length() > 200 ? resp.substring(0, 200) : resp;
                 firstLoad = false;
 
                 runOnUiThread(() -> {
@@ -142,7 +147,14 @@ public class DashboardActivity extends Activity {
                     showEmpty(items.isEmpty());
                     lastId = finalLastId;
                     prefs.edit().putInt("last_id", lastId).apply();
-                    setStatus("Connected  •  " + items.size() + " messages", "#22C55E");
+                    if (items.isEmpty() && finalSkipped > 0) {
+                        // Parsing issue — show debug info
+                        setStatus("Parse error (" + finalSkipped + " skipped). Raw: " + debugResp, "#F59E0B");
+                    } else if (items.isEmpty()) {
+                        setStatus("Connected  •  Koi message nahi hua abhi tak", "#64748B");
+                    } else {
+                        setStatus("Connected  •  " + items.size() + " messages", "#22C55E");
+                    }
                 });
 
             } catch (Exception e) {

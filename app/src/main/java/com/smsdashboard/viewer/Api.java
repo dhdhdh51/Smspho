@@ -62,6 +62,8 @@ class Api {
         int i = json.indexOf(search);
         if (i < 0) return 0;
         int s = i + search.length();
+        // Handle both "id":5 and "id":"5" (PHP PDO returns strings on some servers)
+        if (s < json.length() && json.charAt(s) == '"') s++;
         int e = s;
         while (e < json.length() && (Character.isDigit(json.charAt(e)) || json.charAt(e) == '-')) e++;
         try { return Integer.parseInt(json.substring(s, e)); } catch (Exception ex) { return 0; }
