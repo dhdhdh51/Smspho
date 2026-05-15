@@ -11,13 +11,26 @@ require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
 
 startSecureSession();
-if (!isLoggedIn()) {
+
+// API key auth for mobile app
+$apiKey = trim($_GET['api_key'] ?? $_SERVER['HTTP_X_API_KEY'] ?? '');
+if ($apiKey) {
+    $db   = getDB();
+    $stmt = $db->prepare('SELECT * FROM users WHERE api_key = ? LIMIT 1');
+    $stmt->execute([$apiKey]);
+    $user = $stmt->fetch();
+    if (!$user) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Invalid API key']);
+        exit;
+    }
+} elseif (isLoggedIn()) {
+    $user = currentUser();
+} else {
     http_response_code(401);
     echo json_encode(['error' => 'Unauthorized']);
     exit;
 }
-
-$user   = currentUser();
 $userId = $user['id'];
 $db     = getDB();
 
