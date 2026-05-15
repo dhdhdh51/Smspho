@@ -106,15 +106,34 @@ public class DashboardActivity extends Activity {
                     + "&api_key=" + URLEncoder.encode(apiKey, "UTF-8");
                 String resp = Api.get(path).trim();
 
-                if (!resp.startsWith("[")) {
-                    String errMsg = Api.str(resp, "error");
-                    if (errMsg.isEmpty()) errMsg = resp.length() > 120 ? resp.substring(0, 120) + "..." : resp;
-                    final String finalErr = errMsg;
-                    setStatus("Server error: " + finalErr, "#EF4444");
+                // Handle both server response formats:
+                // New (deployed): plain array  [{"id":1,...},...]
+                // Old (not yet deployed): object  {"messages":[{"id":1,...},...], ...}
+                String inner;
+                if (resp.startsWith("[")) {
+                    inner = resp.substring(1, resp.length() - 1).trim();
+                } else if (resp.startsWith("{")) {
+                    int arrMark = resp.indexOf("\"messages\":[");
+                    if (arrMark < 0) {
+                        String errMsg = Api.str(resp, "error");
+                        if (errMsg.isEmpty()) errMsg = resp.substring(0, Math.min(120, resp.length()));
+                        final String fe = errMsg;
+                        setStatus("Server error: " + fe, "#EF4444");
+                        return;
+                    }
+                    int start = resp.indexOf("[", arrMark) + 1;
+                    int depth = 1, pos = start;
+                    while (pos < resp.length() && depth > 0) {
+                        char c = resp.charAt(pos);
+                        if (c == '[') depth++;
+                        else if (c == ']') depth--;
+                        pos++;
+                    }
+                    inner = resp.substring(start, pos - 1).trim();
+                } else {
+                    setStatus("Server error: " + resp.substring(0, Math.min(120, resp.length())), "#EF4444");
                     return;
                 }
-
-                String inner = resp.substring(1, resp.length() - 1).trim();
                 ArrayList<String> newItems = new ArrayList<>();
                 int newLastId = lastId;
                 int parsed = 0, skipped = 0;
