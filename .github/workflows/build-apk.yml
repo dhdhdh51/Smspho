@@ -19,38 +19,37 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Gradle
+      - name: Install Gradle 8.4
         uses: gradle/actions/setup-gradle@v3
-
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
+        with:
+          gradle-version: '8.4'
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon
+        run: gradle assembleDebug --no-daemon --stacktrace
 
-      - name: Upload APK
+      - name: Rename APK
+        run: mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/SMSDashboard.apk
+
+      - name: Upload APK as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: SMSDashboard-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/SMSDashboard.apk
           retention-days: 30
 
-      - name: Create Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: SMS Dashboard v1.0.${{ github.run_number }}
+          name: "SMS Dashboard APK - Build #${{ github.run_number }}"
           body: |
-            ## SMS Dashboard APK
+            ## SMS Dashboard APK Ready!
 
-            Automatic build from source code.
-
-            ### Install karne ke steps:
-            1. `SMSDashboard.apk` download karo
-            2. Phone mein install karo (Unknown sources allow karo)
-            3. App kholo → API Key paste karo → Save
-            4. Done! SMS automatically forward hoga
-
-            **Webhook:** https://sms.bharatseo.site/api/receive.php
-          files: app/build/outputs/apk/debug/app-debug.apk
+            ### Install Steps:
+            1. Neeche SMSDashboard.apk download karo
+            2. Phone mein install karo
+            3. Agar blocked ho → Settings → Install unknown apps → Allow
+            4. App kholo → API Key daalo → Save
+            5. Done! SMS automatically forward hoga
+          files: app/build/outputs/apk/debug/SMSDashboard.apk
           token: ${{ secrets.GITHUB_TOKEN }}
